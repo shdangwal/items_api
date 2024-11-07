@@ -1,6 +1,16 @@
 from enum import Enum
-from fastapi import FastAPI
-from pydantic import BaseModel
+from typing import Annotated, Literal
+from fastapi import FastAPI, Query
+from pydantic import BaseModel, Field
+
+
+class FilterParams(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    limit: int = Field(100, gt=0, le=100)
+    offset: int = Field(0, ge=0)
+    order_by: Literal["created_at", "updated_at"] = "created_at"
+    tags: list[str] = []
 
 
 class Product(BaseModel):
@@ -33,16 +43,25 @@ async def create_product(product: Product):
 
 
 @app.put("/products/{product_id}")
-async def update_product(product_id: int, product: Product, q: str | None = None):
+async def update_product(
+    product_id: int,
+    product: Product,
+    q: Annotated[str | None, Query(min_length=3, max_length=50)] = None,
+):
     result = {"product_id": product_id, **product.dict()}
     if q:
         result["q"] = q
     return result
 
 
-@app.get("/items")
+@app.get("/items/")
 async def read_items(skip: int = 0, limit: int = 10):
     return fake_items_db[skip : skip + limit]
+
+
+@app.get("/values/")
+async def read_values(filter_query: Annotated[FilterParams, Query()]):
+    return filter_query
 
 
 @app.get("/items/{item_id}")
